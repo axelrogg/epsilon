@@ -138,7 +138,8 @@ getCursorPosition(int *rows, int *cols)
 
 
 // Gets size of terminal window
-int getWindowSize(int *rows, int *cols)
+int
+getWindowSize(int *rows, int *cols)
 {
   struct winsize ws;
 
@@ -159,32 +160,68 @@ int getWindowSize(int *rows, int *cols)
 }
 
 
+/***  append buffer  ***/
+
+struct abuf
+{
+  char *b;
+  int len;
+};
+
+#define ABUF_INIT {NULL, 0}
+
+
+void
+abAppend(struct abuf *ab, const char *s, int len)
+{
+  char *new = realloc(ab->b, ab->len + len);
+
+  if (new == NULL)
+    return;
+
+  memcpy(&new[ab->len], s, len);
+  ab->b = new;
+  ab->len += len;
+}
+
+
+void
+abFree(struct abuf *ab)
+{
+  free(ab->b);
+}
+
 /***  output  ***/
 
 void
-editorDrawRows()
+editorDrawRows(struct abuf *ab)
 {
   for (int y = 0; y < E.screenrows; y++)
   {
-    write(STDOUT_FILENO, "~", 1);
+    abAppend(ab, "~", 1);
 
     if (y < E.screenrows - 1)
-      write(STDOUT_FILENO, "\r\n", 2);
+      apAppend(ab, "\r\n", 2);
   }
 }
 
 void
 editorRefreshScreen()
 {
-  // write 4 bytes to the terminal to clear the entire screen.
-  write(STDOUT_FILENO, "\x1b[2J", 4);
-  // Reposition the cursor from the bottom of the screen to the top-left corner.
-  write(STDOUT_FILENO, "\x1b[H", 3);
+  struct abuf ab = ABUF_INIT;
 
-  editorDrawRows();
+  // write 4 bytes to the terminal to clear the entire screen.
+  abAppend(&ab, "\x1b[2J", 4);
+  // Reposition the cursor from the bottom of the screen to the top-left corner.
+  abAppend(&ab, "\x1b[H", 3);
+
+  editorDrawRows(&ab);
 
   // Go back up
-  write(STDOUT_FILENO, "\x1b[H", 3);
+  abAppend(&ab, "\x1b[H", 3);
+
+  write(STDOUT_FILENO, ab.b, ab.len);
+  abFree(&ab);
 }
 
 
