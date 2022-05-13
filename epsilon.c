@@ -108,12 +108,50 @@ editorReadKey()
 }
 
 
+// Gets cursor position
+int
+getCursorPosition(int *rows, int *cols)
+{
+  char buf[32];
+  unsigned int i = 0;
+
+  // n command gives terminal status information
+  // 6 argument asks for cursor position
+  if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4)
+    return -1;
+
+  while (i < sizeof(buf) -1)
+  {
+    if (read(STDIN_FILENO, &buf[i], 1) != 1) break;
+    if (buf[i] == 'R') break;
+    i++;
+  }
+  buf[i] = '\0';
+
+  if (buf[0] != '\x1b' || buf[1] != '[') return -1;
+  if (sscanf(&buf[2], "%d;%d", rows, cols) != 2) return -1;
+  return 0;
+
+  editorReadKey();
+  return -1;
+}
+
+
+// Gets size of terminal window
 int getWindowSize(int *rows, int *cols)
 {
   struct winsize ws;
 
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0)
-    return -1;
+  {
+    // C command moves cursor the right
+    // B command moves cursor down
+    // the result should be to move the cursor to the bottom right without going pass the edge of the screen.
+    if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12)
+      return -1;
+    
+    return getCursorPosition(rows, cols);
+  }
 
   *cols = ws.ws_col;
   *rows = ws.ws_row;
@@ -127,7 +165,12 @@ void
 editorDrawRows()
 {
   for (int y = 0; y < E.screenrows; y++)
-    write(STDOUT_FILENO, "~\r\n", 3);
+  {
+    write(STDOUT_FILENO, "~", 1);
+
+    if (y < E.screenrows - 1)
+      write(STDOUT_FILENO, "\r\n", 2);
+  }
 }
 
 void
@@ -167,6 +210,7 @@ editorProcessKeyPress()
 
 /***  init  ***/
 
+// Initialize all the fields in `E` struct.
 void
 initEditor()
 {
