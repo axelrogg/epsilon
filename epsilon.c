@@ -4,6 +4,7 @@
 #include<errno.h>
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
 #include<sys/ioctl.h>
 #include<termios.h>
 #include<unistd.h>
@@ -201,7 +202,7 @@ editorDrawRows(struct abuf *ab)
     abAppend(ab, "~", 1);
 
     if (y < E.screenrows - 1)
-      apAppend(ab, "\r\n", 2);
+      abAppend(ab, "\r\n", 2);
   }
 }
 
