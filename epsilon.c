@@ -148,7 +148,7 @@ getWindowSize(int *rows, int *cols)
   {
     // C command moves cursor the right
     // B command moves cursor down
-    // the result should be to move the cursor to the bottom right without going pass the edge of the screen.
+    // the result should be to move the cursor to the bottom right without going passed the edge of the screen.
     if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12)
       return -1;
     
@@ -211,6 +211,8 @@ editorRefreshScreen()
 {
   struct abuf ab = ABUF_INIT;
 
+  // make the cursor invisible (hides possible flickering effect while repainting screen).
+  abAppend(&ab, "\x1b[?25l", 6);
   // write 4 bytes to the terminal to clear the entire screen.
   abAppend(&ab, "\x1b[2J", 4);
   // Reposition the cursor from the bottom of the screen to the top-left corner.
@@ -220,6 +222,9 @@ editorRefreshScreen()
 
   // Go back up
   abAppend(&ab, "\x1b[H", 3);
+  // make the cursor visible again
+  abAppend(&ab, "\x1b[?25h", 6);
+
 
   write(STDOUT_FILENO, ab.b, ab.len);
   abFree(&ab);
