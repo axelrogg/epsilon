@@ -10,15 +10,17 @@
 #include<unistd.h>
 
 
-/***  terminal  ***/
+/***  defines  ***/
 
 // Mimic <Ctrl-(something)> key
 #define CTRL_KEY(k) ((k) & 0x1f)
+#define EPSILON_VERSION "0.0.1"
 
 
 /***  data  ***/
 struct editorConfig
 {
+  int cx, cy;
   int screenrows;
   int screencols;
   struct termios base_termios;
@@ -195,11 +197,57 @@ abFree(struct abuf *ab)
 /***  output  ***/
 
 void
+drawWelcomeMsg(struct abuf *ab)
+{
+  char wbuff[80];
+
+  char *wmsg[] = {"Welcome to Epsilon",
+                   "Created by antirez <http://github.com/antirez/kilo>",
+                   "Lightly modified by Axel Rodríguez Chang"};
+  int n = sizeof(wmsg) / sizeof(wmsg[0]);
+
+  for (int i = 0; i < n; i++)
+  {
+    int wlen;
+    if (i == n - 1)
+    {
+      wlen = snprintf(wbuff, sizeof(wbuff), "%s", wmsg[i]);
+    }
+    else
+    {
+      wlen = snprintf(wbuff, sizeof(wbuff), "%s\n\r", wmsg[i]);
+    }
+
+    if (wlen > E.screencols)
+      wlen = E.screencols;
+
+    int padding = (E.screencols - wlen) / 2;
+    if (padding)
+    {
+      abAppend(ab, "~", 1);
+      padding--;
+    }
+    while (padding--)
+      abAppend(ab, " ", 1);
+    abAppend(ab, wbuff, wlen);
+  }
+}
+
+void
 editorDrawRows(struct abuf *ab)
 {
   for (int y = 0; y < E.screenrows; y++)
   {
-    abAppend(ab, "~", 1);
+    if (y == E.screenrows / 3)
+    {
+      drawWelcomeMsg(ab);
+    } else
+    {
+      abAppend(ab, "~", 1);
+    }
+
+    // erase part of the line to the left of the cursor
+    abAppend(ab, "\x1b[K", 3);
 
     if (y < E.screenrows - 1)
       abAppend(ab, "\r\n", 2);
@@ -213,8 +261,6 @@ editorRefreshScreen()
 
   // make the cursor invisible (hides possible flickering effect while repainting screen).
   abAppend(&ab, "\x1b[?25l", 6);
-  // write 4 bytes to the terminal to clear the entire screen.
-  abAppend(&ab, "\x1b[2J", 4);
   // Reposition the cursor from the bottom of the screen to the top-left corner.
   abAppend(&ab, "\x1b[H", 3);
 
